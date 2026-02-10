@@ -62,10 +62,10 @@ const seedData = async () => {
         console.log(`📋 Created ${notices.length} notices`);
 
         console.log('\n🎉 Seed completed successfully!');
-        console.log('\n📌 Demo Credentials:');
-        console.log('   Admin:     admin / admin');
-        console.log('   Moderator: mod / mod');
-        console.log('   Student:   student / student\n');
+        console.log('\n📌 Demo Credentials (Login with ID or Email):');
+        console.log('   Admin:     2020/ADM/001  OR  admin@vuc.edu     (Password: admin)');
+        console.log('   Moderator: 2020/MOD/001  OR  mod@vuc.edu       (Password: mod)');
+        console.log('   Student:   2021/ICT/075  OR  student@vuc.edu   (Password: student)\n');
 
         await mongoose.connection.close();
         process.exit(0);

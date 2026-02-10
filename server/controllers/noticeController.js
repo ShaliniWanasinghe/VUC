@@ -1,5 +1,7 @@
 const Notice = require('../models/Notice');
 const User = require('../models/User');
+const Interest = require('../models/Interest');
+const Notification = require('../models/Notification');
 const sendEmail = require('../utils/emailService');
 
 const getNotices = async (req, res) => {
@@ -104,25 +106,20 @@ const createNotice = async (req, res) => {
                         <p>${content}</p>
                         <p>Login to VUC to view more details.</p>
                     `;
-
-                    // Send to all emails
-                    // In production, use a queue or bcc to avoid exposing all emails
-                    // For simplicity, we loop or use bcc
-                    // Using loop for individual simulation logs
-
-                    // const sendEmail = require('../utils/emailService'); // Import here or top
-
-                    // Sending to first user just for demo to avoid spamming loop in dev
-                    // for (const email of emails) {
-                    // await sendEmail(email, emailSubject, emailBody);
-                    // }
-                    // Sending to all as BCC
                     await sendEmail(emails.join(','), emailSubject, emailBody);
-
                 }
+
+                // CREATE IN-APP NOTIFICATIONS for all students
+                const notifications = users.map(user => ({
+                    recipient: user._id,
+                    message: `New Notice: ${title}`,
+                    link: `/`,
+                    type: 'important',
+                    notice: notice._id
+                }));
+                await Notification.insertMany(notifications);
             } catch (emailError) {
-                console.error('Error sending email notifications:', emailError);
-                // Do not fail the request if email fails
+                console.error('Error sending in-app/email notifications:', emailError);
             }
         }
 
@@ -172,6 +169,37 @@ const updateNotice = async (req, res) => {
         await notice.save();
         await notice.populate('author', 'userId name role');
 
+        // NOTIFY INTERESTED USERS
+        try {
+            const interactions = await Interest.find({ notice: notice._id }).populate('user', 'email');
+            if (interactions.length > 0) {
+                const notifications = interactions.map(inter => ({
+                    recipient: inter.user._id,
+                    message: `Update: The notice "${notice.title}" has been updated.`,
+                    link: `/`,
+                    type: inter.type === 'remind_me' ? 'reminder' : 'interest',
+                    notice: notice._id
+                }));
+                await Notification.insertMany(notifications);
+
+                // Email those who set reminders
+                const reminderEmails = interactions
+                    .filter(inter => inter.type === 'remind_me')
+                    .map(inter => inter.user.email)
+                    .filter(e => e);
+
+                if (reminderEmails.length > 0) {
+                    await sendEmail(
+                        reminderEmails.join(','),
+                        `Notice Updated: ${notice.title}`,
+                        `<p>The notice you are following has been updated.</p><h3>${notice.title}</h3><p>${notice.content}</p>`
+                    );
+                }
+            }
+        } catch (notifError) {
+            console.error('Error sending update notifications:', notifError);
+        }
+
         res.json(notice);
     } catch (error) {
         if (error.kind === 'ObjectId') {
@@ -202,6 +230,25 @@ const updateNoticeStatus = async (req, res) => {
 
         if (!notice) {
             return res.status(404).json({ message: 'Notice not found.' });
+        }
+
+        // If newly published, notify all students
+        if (status === 'published') {
+            const users = await User.find({ role: 'student' }).select('_id email');
+            const notifications = users.map(u => ({
+                recipient: u._id,
+                message: `New Notice: ${notice.title}`,
+                link: `/`,
+                type: 'important',
+                notice: notice._id
+            }));
+            await Notification.insertMany(notifications).catch(e => console.error(e));
+
+            // Email notifications
+            const emails = users.map(u => u.email).filter(e => e);
+            if (emails.length > 0) {
+                await sendEmail(emails.join(','), `Notice Published: ${notice.title}`, `<p>${notice.content}</p>`).catch(e => console.error(e));
+            }
         }
 
         res.json(notice);
@@ -243,4 +290,92 @@ const deleteNotice = async (req, res) => {
     }
 };
 
-module.exports = { getNotices, getNoticeById, createNotice, updateNotice, updateNoticeStatus, deleteNotice };
+// POST /api/notices/:id/interest — Toggle interest
+const toggleInterest = async (req, res) => {
+    try {
+        const noticeId = req.params.id;
+        const userId = req.user._id;
+
+        const notice = await Notice.findById(noticeId);
+        if (!notice) return res.status(404).json({ message: 'Notice not found' });
+
+        const existing = await Interest.findOne({ user: userId, notice: noticeId, type: 'interested' });
+
+        if (existing) {
+            await Interest.findByIdAndDelete(existing._id);
+            return res.json({ message: 'Removed from interests', status: 'removed' });
+        } else {
+            await Interest.create({ user: userId, notice: noticeId, type: 'interested' });
+
+            // Create in-app notification
+            await Notification.create({
+                recipient: userId,
+                message: `You marked "${notice.title}" as interested.`,
+                link: `/`,
+                type: 'interest',
+                notice: noticeId
+            });
+
+            return res.json({ message: 'Added to interests', status: 'added' });
+        }
+    } catch (error) {
+        res.status(500).json({ message: 'Server error', error: error.message });
+    }
+};
+
+// POST /api/notices/:id/remind — Toggle reminder
+const toggleReminder = async (req, res) => {
+    try {
+        const noticeId = req.params.id;
+        const userId = req.user._id;
+
+        const notice = await Notice.findById(noticeId);
+        if (!notice) return res.status(404).json({ message: 'Notice not found' });
+
+        const existing = await Interest.findOne({ user: userId, notice: noticeId, type: 'remind_me' });
+
+        if (existing) {
+            await Interest.findByIdAndDelete(existing._id);
+            return res.json({ message: 'Reminder removed', status: 'removed' });
+        } else {
+            await Interest.create({ user: userId, notice: noticeId, type: 'remind_me' });
+
+            // Create in-app notification
+            await Notification.create({
+                recipient: userId,
+                message: `Reminder set for "${notice.title}". We'll alert you of updates.`,
+                link: `/`,
+                type: 'reminder',
+                notice: noticeId
+            });
+
+            // Send immediate confirmation email
+            const emailSubject = `Reminder Set: ${notice.title}`;
+            const emailBody = `
+                <h2>Reminder Set Successfully</h2>
+                <p>You have set a reminder for the following notice:</p>
+                <p><strong>Title:</strong> ${notice.title}</p>
+                <p><strong>Category:</strong> ${notice.category}</p>
+                <hr />
+                <p>${notice.content}</p>
+                <p>We will notify you of any updates to this notice.</p>
+            `;
+            await sendEmail(req.user.email, emailSubject, emailBody);
+
+            return res.json({ message: 'Reminder set successfully', status: 'added' });
+        }
+    } catch (error) {
+        res.status(500).json({ message: 'Server error', error: error.message });
+    }
+};
+
+module.exports = {
+    getNotices,
+    getNoticeById,
+    createNotice,
+    updateNotice,
+    updateNoticeStatus,
+    deleteNotice,
+    toggleInterest,
+    toggleReminder
+};

@@ -13,23 +13,34 @@ const generateToken = (user) => {
 // POST /api/auth/login
 const login = async (req, res) => {
     const { userId, password } = req.body;
+    console.log(`🔑 Login attempt for: "${userId}"`);
 
     if (!userId || !password) {
         return res.status(400).json({ message: 'User ID and password are required.' });
     }
 
     try {
-        const user = await User.findOne({ userId });
+        const identifier = userId.trim();
+        // Find user by userId OR email
+        const user = await User.findOne({
+            $or: [
+                { userId: { $regex: new RegExp(`^${identifier}$`, 'i') } },
+                { email: identifier.toLowerCase() }
+            ]
+        });
 
         if (!user) {
+            console.log(`❌ User not found: "${identifier}"`);
             return res.status(401).json({ message: 'Invalid credentials.' });
         }
 
         const isMatch = await user.comparePassword(password);
         if (!isMatch) {
+            console.log(`❌ Password mismatch for: "${identifier}"`);
             return res.status(401).json({ message: 'Invalid credentials.' });
         }
 
+        console.log(`✅ Login successful for: "${user.userId}"`);
         const token = generateToken(user);
 
         res.json({

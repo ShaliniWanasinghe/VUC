@@ -11,7 +11,13 @@ connectDB();
 
 // Middleware
 app.use(cors({
-    origin: ['http://localhost:5173', 'http://localhost:3000'],
+    origin: [
+        'http://localhost:5173',
+        'http://127.0.0.1:5173',
+        'http://localhost:5174',
+        'http://localhost:3000',
+        process.env.CLIENT_URL
+    ].filter(Boolean),
     credentials: true
 }));
 app.use(express.json());
@@ -19,9 +25,11 @@ app.use(express.json());
 // Routes
 const authRoutes = require('./routes/authRoutes');
 const noticeRoutes = require('./routes/noticeRoutes');
+const notificationRoutes = require('./routes/notificationRoutes');
 
 app.use('/api/auth', authRoutes);
 app.use('/api/notices', noticeRoutes);
+app.use('/api/notifications', notificationRoutes);
 
 app.get('/', (req, res) => {
     res.json({

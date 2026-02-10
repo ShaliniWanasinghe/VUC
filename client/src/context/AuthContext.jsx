@@ -14,14 +14,22 @@ export const AuthProvider = ({ children }) => {
         const storedUser = localStorage.getItem('user');
         const storedToken = localStorage.getItem('token');
         if (storedUser && storedToken) {
-            setUser(JSON.parse(storedUser));
+            try {
+                setUser(JSON.parse(storedUser));
+            } catch (error) {
+                console.error("Failed to parse stored user:", error);
+                localStorage.removeItem('user');
+                localStorage.removeItem('token');
+            }
         }
         setLoading(false);
     }, []);
 
     const login = async (userId, password) => {
         try {
+            console.log(`🌐 Attempting login for: ${userId} at ${api.defaults.baseURL}/auth/login`);
             const response = await api.post('/auth/login', { userId, password });
+            console.log('✅ Server response:', response.data);
             const { token, user: loggedInUser } = response.data;
             setUser(loggedInUser);
             localStorage.setItem('user', JSON.stringify(loggedInUser));
@@ -29,6 +37,11 @@ export const AuthProvider = ({ children }) => {
             toast.success(`Welcome back, ${loggedInUser.name}!`);
             return true;
         } catch (error) {
+            console.error('❌ Login error detail:', {
+                message: error.message,
+                response: error.response?.data,
+                status: error.response?.status
+            });
             toast.error(error.response?.data?.message || 'Login failed');
             return false;
         }
@@ -37,7 +50,11 @@ export const AuthProvider = ({ children }) => {
     const register = async (userId, name, email, password, role) => {
         try {
             const response = await api.post('/auth/register', { userId, name, email, password, role });
-            toast.success('Registration successful! Please login.');
+            const { token, user: newUser } = response.data;
+            setUser(newUser);
+            localStorage.setItem('user', JSON.stringify(newUser));
+            localStorage.setItem('token', token);
+            toast.success('Registration successful! Welcome to VUC.');
             return true;
         } catch (error) {
             toast.error(error.response?.data?.message || 'Registration failed');

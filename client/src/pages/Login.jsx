@@ -11,6 +11,23 @@ const Login = () => {
     const { login } = useAuth();
     const navigate = useNavigate();
 
+    const handleDemoLogin = async (role) => {
+        setLoading(true);
+        let credentials = {};
+        if (role === 'admin') credentials = { id: '2020/ADM/001', pass: 'admin' };
+        else if (role === 'moderator') credentials = { id: '2020/MOD/001', pass: 'mod' };
+        else credentials = { id: '2021/ICT/075', pass: 'student' };
+
+        setUserId(credentials.id);
+        setPassword(credentials.pass);
+
+        const success = await login(credentials.id, credentials.pass);
+        if (success) {
+            navigate('/');
+        }
+        setLoading(false);
+    };
+
     const handleSubmit = async (e) => {
         e.preventDefault();
         setLoading(true);
@@ -81,6 +98,34 @@ const Login = () => {
                         {loading ? 'Logging in...' : 'Login'}
                     </button>
                 </form>
+
+                {/* Demo Logins */}
+                <div className="mt-8 pt-6 border-t border-gray-100">
+                    <p className="text-xs font-bold text-gray-400 mb-4 uppercase tracking-wider">Quick Demo Access</p>
+                    <div className="grid grid-cols-3 gap-2">
+                        <button
+                            onClick={() => handleDemoLogin('admin')}
+                            disabled={loading}
+                            className="text-[10px] py-2 px-1 bg-amber-50 text-amber-700 border border-amber-200 rounded hover:bg-amber-100 transition-colors font-bold uppercase"
+                        >
+                            Admin
+                        </button>
+                        <button
+                            onClick={() => handleDemoLogin('moderator')}
+                            disabled={loading}
+                            className="text-[10px] py-2 px-1 bg-rose-50 text-rose-700 border border-rose-200 rounded hover:bg-rose-100 transition-colors font-bold uppercase"
+                        >
+                            Mod
+                        </button>
+                        <button
+                            onClick={() => handleDemoLogin('student')}
+                            disabled={loading}
+                            className="text-[10px] py-2 px-1 bg-blue-50 text-blue-700 border border-blue-200 rounded hover:bg-blue-100 transition-colors font-bold uppercase"
+                        >
+                            Student
+                        </button>
+                    </div>
+                </div>
 
                 <p className="mt-6 text-center text-sm text-gray-500">
                     Don't have an account?{' '}

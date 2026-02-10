@@ -1,19 +1,16 @@
 {
   "name": "vuc-client",
-  "private": true,
   "version": "1.0.0",
+  "private": true,
+  "description": "",
+  "license": "ISC",
+  "author": "",
   "type": "module",
+  "main": "vite.config.js",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview"
-  },
-  "devDependencies": {
-    "@tailwindcss/vite": "^4.1.18",
-    "@types/react": "^19.2.13",
-    "@types/react-dom": "^19.2.3",
-    "tailwindcss": "^4.1.18",
-    "vite": "^7.3.1"
   },
   "dependencies": {
     "@vitejs/plugin-react": "^5.1.4",
@@ -24,5 +21,12 @@
     "react-dom": "^19.2.4",
     "react-hot-toast": "^2.6.0",
     "react-router-dom": "^7.13.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.1.18",
+    "@types/react": "^19.2.13",
+    "@types/react-dom": "^19.2.3",
+    "tailwindcss": "^4.1.18",
+    "vite": "^7.3.1"
   }
 }

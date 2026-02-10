@@ -33,7 +33,7 @@ const Register = () => {
         setLoading(true);
         const success = await register(formData.userId, formData.name, formData.email, formData.password, formData.role);
         if (success) {
-            navigate('/login');
+            navigate('/');
         }
         setLoading(false);
     };

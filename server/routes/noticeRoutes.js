@@ -24,4 +24,8 @@ router.patch('/:id/status', roleMiddleware(['admin']), noticeController.updateNo
 // Delete notice (Admin or Author)
 router.delete('/:id', roleMiddleware(['admin', 'moderator']), noticeController.deleteNotice);
 
+// User interactions
+router.post('/:id/interest', noticeController.toggleInterest);
+router.post('/:id/remind', noticeController.toggleReminder);
+
 module.exports = router;
